@@ -1,4 +1,4 @@
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
 
 /**
  * Metro configuration
@@ -6,6 +6,16 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
-const config = {};
+const defaultConfig = getDefaultConfig(__dirname);
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const config = {
+  resolver: {
+    // Redux 5 / RTK ship package "exports" + .cjs/.mjs entrypoints.
+    // Enable exports so Metro prefers redux.mjs instead of the broken .cjs main path.
+    unstable_enablePackageExports: true,
+    sourceExts: [...defaultConfig.resolver.sourceExts, 'cjs', 'mjs'],
+    resolverMainFields: ['react-native', 'browser', 'module', 'main'],
+  },
+};
+
+module.exports = mergeConfig(defaultConfig, config);
