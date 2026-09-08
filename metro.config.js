@@ -1,3 +1,4 @@
+const path = require('path');
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
 
 /**
@@ -8,6 +9,11 @@ const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
  */
 const defaultConfig = getDefaultConfig(__dirname);
 
+const workletsPluginPath = path.resolve(
+  __dirname,
+  'node_modules/react-native-worklets/plugin/index.js',
+);
+
 const config = {
   resolver: {
     // Redux 5 / RTK ship package "exports" + .cjs/.mjs entrypoints.
@@ -15,6 +21,16 @@ const config = {
     unstable_enablePackageExports: true,
     sourceExts: [...defaultConfig.resolver.sourceExts, 'cjs', 'mjs'],
     resolverMainFields: ['react-native', 'browser', 'module', 'main'],
+    resolveRequest: (context, moduleName, platform) => {
+      if (moduleName === 'react-native-worklets/plugin') {
+        return {
+          type: 'sourceFile',
+          filePath: workletsPluginPath,
+        };
+      }
+
+      return context.resolveRequest(context, moduleName, platform);
+    },
   },
 };
 
