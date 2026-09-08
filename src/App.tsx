@@ -1,6 +1,7 @@
 import React, {useEffect} from 'react';
 import {StatusBar, View, StyleSheet} from 'react-native';
 import BootSplash from 'react-native-bootsplash';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {Provider} from 'react-redux';
 import {PersistGate} from 'redux-persist/integration/react';
@@ -13,13 +14,15 @@ import {colors} from './theme/colors';
 
 function App() {
   return (
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <NetworkProvider>
-          <AppShell />
-        </NetworkProvider>
-      </PersistGate>
-    </Provider>
+    <GestureHandlerRootView style={styles.root}>
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <NetworkProvider>
+            <AppShell />
+          </NetworkProvider>
+        </PersistGate>
+      </Provider>
+    </GestureHandlerRootView>
   );
 }
 

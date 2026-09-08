@@ -33,6 +33,42 @@ jest.mock('@shopify/flash-list', () => {
   };
 });
 
+jest.mock('react-native-reanimated', () => {
+  const ReactLocal = require('react');
+  return {
+    __esModule: true,
+    default: {
+      createAnimatedComponent: (Component: React.ComponentType) => Component,
+      View: ReactLocal.Fragment,
+    },
+    useSharedValue: (value: number) => ({value}),
+    useAnimatedStyle: () => ({}),
+    withTiming: (value: number) => value,
+    withSpring: (value: number) => value,
+    withSequence: (...values: number[]) => values[0],
+  };
+});
+
+jest.mock('react-native-gesture-handler', () => {
+  const ReactLocal = require('react');
+  const {View} = require('react-native');
+  return {
+    GestureHandlerRootView: ({children}: {children: React.ReactNode}) =>
+      ReactLocal.createElement(View, {style: {flex: 1}}, children),
+  };
+});
+
+jest.mock('react-native-reanimated-carousel', () => {
+  const ReactLocal = require('react');
+  const {View} = require('react-native');
+  const Stub = () => ReactLocal.createElement(View);
+  return {
+    __esModule: true,
+    Carousel: Stub,
+    default: Stub,
+  };
+});
+
 jest.mock('react-native-mmkv', () => {
   const store = new Map<string, string>();
 

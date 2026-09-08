@@ -68,6 +68,16 @@ export async function fetchProducts(
   return data.products.map(mapProduct);
 }
 
+export async function fetchProductById(
+  productId: number,
+  signal?: AbortSignal,
+): Promise<CatalogProduct> {
+  const data = await apiGet<DummyJsonProduct>(`${PRODUCTS_URL}/${productId}`, {
+    signal,
+  });
+  return mapProduct(data);
+}
+
 export async function searchProducts(
   params: SearchProductsParams,
 ): Promise<CatalogProduct[]> {
