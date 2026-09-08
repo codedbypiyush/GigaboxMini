@@ -1,7 +1,8 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {FlashList} from '@shopify/flash-list';
-import React, {useCallback, useEffect, useMemo} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -10,29 +11,50 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
-import {ProductCard} from '../components/ProductCard';
 import {CatalogSkeleton} from '../components/CatalogSkeleton';
+import {CategoryChips} from '../components/CategoryChips';
+import {ProductCard} from '../components/ProductCard';
+import {SearchBar} from '../components/SearchBar';
 import type {RootStackParamList} from '../navigation/types';
 import {useNetwork} from '../providers/NetworkProvider';
 import {useAppDispatch, useAppSelector} from '../store/hooks';
 import {
-  selectCatalogError,
-  selectCatalogProducts,
-  selectCatalogStatus,
   fetchCatalog,
+  loadCategories,
+  searchCatalog,
+  selectCatalogError,
+  selectCatalogStatus,
+  selectCategories,
+  selectSearchQuery,
+  selectSearchStatus,
+  selectSelectedCategory,
+  selectVisibleProducts,
+  setSearchQuery,
+  setSelectedCategory,
   type CatalogProduct,
 } from '../store/slices/catalogSlice';
 import {colors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Catalog'>;
 
+const SEARCH_DEBOUNCE_MS = 350;
+
 export function CatalogScreen({navigation}: Props) {
   const dispatch = useAppDispatch();
-  const products = useAppSelector(selectCatalogProducts);
+  const products = useAppSelector(selectVisibleProducts);
+  const cachedCount = useAppSelector(state => state.catalog.products.length);
   const status = useAppSelector(selectCatalogStatus);
+  const searchStatus = useAppSelector(selectSearchStatus);
   const error = useAppSelector(selectCatalogError);
+  const categories = useAppSelector(selectCategories);
+  const selectedCategory = useAppSelector(selectSelectedCategory);
+  const searchQuery = useAppSelector(selectSearchQuery);
   const {isOffline} = useNetwork();
   const {width} = useWindowDimensions();
+
+  const [draftQuery, setDraftQuery] = useState(searchQuery);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const horizontalPadding = width * 0.04;
   const gap = 12;
@@ -43,16 +65,17 @@ export function CatalogScreen({navigation}: Props) {
   useEffect(() => {
     const load = async () => {
       try {
-        await dispatch(fetchCatalog({force: products.length === 0})).unwrap();
+        await dispatch(fetchCatalog({force: cachedCount === 0})).unwrap();
+        await dispatch(loadCategories());
       } catch {
-        // Errors are stored in the catalog slice; cached products still render.
+        // Errors live in the catalog slice; cached products still render.
       }
     };
 
-    if (!isOffline || products.length === 0) {
+    if (!isOffline || cachedCount === 0) {
       load();
     }
-  }, [dispatch, isOffline, products.length]);
+  }, [cachedCount, dispatch, isOffline]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -66,6 +89,70 @@ export function CatalogScreen({navigation}: Props) {
       ),
     });
   }, [navigation]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      searchAbortRef.current?.abort();
+    };
+  }, []);
+
+  const runSearch = useCallback(
+    (query: string) => {
+      searchAbortRef.current?.abort();
+
+      const trimmed = query.trim();
+      dispatch(setSearchQuery(query));
+
+      if (!trimmed) {
+        searchAbortRef.current = null;
+        return;
+      }
+
+      if (isOffline) {
+        return;
+      }
+
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
+      dispatch(
+        searchCatalog({
+          query: trimmed,
+          signal: controller.signal,
+        }),
+      );
+    },
+    [dispatch, isOffline],
+  );
+
+  const onChangeSearch = useCallback(
+    (text: string) => {
+      setDraftQuery(text);
+
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+
+      // Cancel the in-flight request immediately on every keystroke so a
+      // slower previous response can never overwrite newer results.
+      searchAbortRef.current?.abort();
+
+      debounceRef.current = setTimeout(() => {
+        runSearch(text);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [runSearch],
+  );
+
+  const onSelectCategory = useCallback(
+    (category: string | null) => {
+      dispatch(setSelectedCategory(category));
+    },
+    [dispatch],
+  );
 
   const onProductPress = useCallback(
     (productId: number) => {
@@ -99,28 +186,66 @@ export function CatalogScreen({navigation}: Props) {
   );
 
   const listHeader = useMemo(() => {
-    if (!error || products.length === 0) {
-      return null;
-    }
-
     return (
-      <View style={styles.inlineNotice}>
-        <Text style={styles.inlineNoticeText}>
-          {isOffline
-            ? 'Offline — showing your last cached catalog.'
-            : `Could not refresh catalog: ${error}`}
-        </Text>
+      <View>
+        <SearchBar value={draftQuery} onChangeText={onChangeSearch} />
+        <CategoryChips
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelect={onSelectCategory}
+        />
+        {searchStatus === 'loading' ? (
+          <View style={styles.searchingRow}>
+            <ActivityIndicator color={colors.actionGreen} size="small" />
+            <Text style={styles.searchingText}>Searching…</Text>
+          </View>
+        ) : null}
+        {error && cachedCount > 0 && !draftQuery.trim() ? (
+          <View style={styles.inlineNotice}>
+            <Text style={styles.inlineNoticeText}>
+              {isOffline
+                ? 'Offline — showing your last cached catalog.'
+                : `Could not refresh catalog: ${error}`}
+            </Text>
+          </View>
+        ) : null}
+        {isOffline && draftQuery.trim().length > 0 ? (
+          <View style={styles.inlineNotice}>
+            <Text style={styles.inlineNoticeText}>
+              Search needs a connection. Clear the query to browse cached
+              products.
+            </Text>
+          </View>
+        ) : null}
       </View>
     );
-  }, [error, isOffline, products.length]);
+  }, [
+    cachedCount,
+    categories,
+    draftQuery,
+    error,
+    isOffline,
+    onChangeSearch,
+    onSelectCategory,
+    searchStatus,
+    selectedCategory,
+  ]);
 
-  const showSkeleton = status === 'loading' && products.length === 0;
-  const showEmptyError = status === 'failed' && products.length === 0;
+  const showSkeleton = status === 'loading' && cachedCount === 0;
+  const showEmptyError = status === 'failed' && cachedCount === 0;
+  const showNoMatches =
+    !showSkeleton &&
+    !showEmptyError &&
+    products.length === 0 &&
+    (draftQuery.trim().length > 0 || selectedCategory !== null);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       {showSkeleton ? (
-        <CatalogSkeleton count={numColumns * 3} />
+        <View style={{paddingHorizontal: horizontalPadding, paddingTop: 12}}>
+          {listHeader}
+          <CatalogSkeleton count={numColumns * 3} />
+        </View>
       ) : showEmptyError ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>Catalog unavailable</Text>
@@ -137,6 +262,16 @@ export function CatalogScreen({navigation}: Props) {
             </Pressable>
           ) : null}
         </View>
+      ) : showNoMatches ? (
+        <View style={{flex: 1, paddingHorizontal: horizontalPadding}}>
+          {listHeader}
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No products found</Text>
+            <Text style={styles.emptySubtitle}>
+              Try another search term or category.
+            </Text>
+          </View>
+        </View>
       ) : (
         <FlashList
           data={products}
@@ -151,6 +286,7 @@ export function CatalogScreen({navigation}: Props) {
             paddingBottom: 24,
           }}
           drawDistance={250}
+          keyboardShouldPersistTaps="handled"
         />
       )}
     </SafeAreaView>
@@ -170,6 +306,16 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     fontWeight: '600',
     fontSize: 15,
+  },
+  searchingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  searchingText: {
+    color: colors.textSecondary,
+    fontSize: 13,
   },
   inlineNotice: {
     backgroundColor: colors.warmBanner,
