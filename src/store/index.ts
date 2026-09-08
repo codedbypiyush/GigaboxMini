@@ -15,8 +15,15 @@ import cartReducer from './slices/cartSlice';
 import catalogReducer from './slices/catalogSlice';
 import trackingReducer from './slices/trackingSlice';
 
+const catalogPersistConfig = {
+  key: 'catalog',
+  storage: mmkvStorage,
+  // Cache products for offline catalog; transient UI fields stay ephemeral.
+  whitelist: ['products'],
+};
+
 const rootReducer = combineReducers({
-  catalog: catalogReducer,
+  catalog: persistReducer(catalogPersistConfig, catalogReducer),
   cart: cartReducer,
   tracking: trackingReducer,
 });
@@ -24,7 +31,6 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'root',
   storage: mmkvStorage,
-  // Catalog is network-backed; only cart + tracking must survive restarts.
   whitelist: ['cart', 'tracking'],
 };
 

@@ -10,6 +10,29 @@ jest.mock('react-native-bootsplash', () => ({
   isVisible: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    fetch: jest.fn(() =>
+      Promise.resolve({
+        isConnected: true,
+        isInternetReachable: true,
+        type: 'wifi',
+      }),
+    ),
+    addEventListener: jest.fn(() => jest.fn()),
+  },
+}));
+
+jest.mock('@shopify/flash-list', () => {
+  const ReactLocal = require('react');
+  const {FlatList} = require('react-native');
+  return {
+    FlashList: (props: object) =>
+      ReactLocal.createElement(FlatList, props),
+  };
+});
+
 jest.mock('react-native-mmkv', () => {
   const store = new Map<string, string>();
 

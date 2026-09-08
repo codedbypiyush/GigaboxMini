@@ -1,4 +1,6 @@
-import {createSlice, type PayloadAction} from '@reduxjs/toolkit';
+import {createAsyncThunk, createSlice, type PayloadAction} from '@reduxjs/toolkit';
+
+import {fetchProducts} from '../../api/products';
 
 export type CatalogProduct = {
   id: number;
@@ -29,6 +31,41 @@ const initialState: CatalogState = {
   searchQuery: '',
 };
 
+type FetchCatalogArgs = {
+  signal?: AbortSignal;
+  force?: boolean;
+};
+
+export const fetchCatalog = createAsyncThunk<
+  CatalogProduct[],
+  FetchCatalogArgs | undefined,
+  {rejectValue: string}
+>(
+  'catalog/fetchCatalog',
+  async (args, {rejectWithValue}) => {
+    try {
+      return await fetchProducts({
+        limit: 100,
+        signal: args?.signal,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load catalog';
+      return rejectWithValue(message);
+    }
+  },
+  {
+    condition: (args, {getState}) => {
+      if (args?.force) {
+        return true;
+      }
+
+      const state = getState() as {catalog: CatalogState};
+      return state.catalog.status !== 'loading';
+    },
+  },
+);
+
 const catalogSlice = createSlice({
   name: 'catalog',
   initialState,
@@ -55,6 +92,24 @@ const catalogSlice = createSlice({
       return initialState;
     },
   },
+  extraReducers: builder => {
+    builder
+      .addCase(fetchCatalog.pending, state => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(fetchCatalog.fulfilled, (state, action) => {
+        state.products = action.payload;
+        state.status = 'succeeded';
+        state.error = null;
+      })
+      .addCase(fetchCatalog.rejected, (state, action) => {
+        // Keep any cached products so offline / flaky networks still show a grid.
+        state.status = state.products.length > 0 ? 'succeeded' : 'failed';
+        state.error =
+          action.payload ?? action.error.message ?? 'Failed to load catalog';
+      });
+  },
 });
 
 export const {
@@ -65,5 +120,14 @@ export const {
   setSearchQuery,
   resetCatalog,
 } = catalogSlice.actions;
+
+export const selectCatalogProducts = (state: {catalog: CatalogState}) =>
+  state.catalog.products;
+
+export const selectCatalogStatus = (state: {catalog: CatalogState}) =>
+  state.catalog.status;
+
+export const selectCatalogError = (state: {catalog: CatalogState}) =>
+  state.catalog.error;
 
 export default catalogSlice.reducer;
