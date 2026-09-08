@@ -69,6 +69,20 @@ jest.mock('react-native-reanimated-carousel', () => {
   };
 });
 
+jest.mock('react-native-maps', () => {
+  const ReactLocal = require('react');
+  const {View} = require('react-native');
+  const MockMap = ({children}: {children?: React.ReactNode}) =>
+    ReactLocal.createElement(View, null, children);
+  return {
+    __esModule: true,
+    default: MockMap,
+    Marker: View,
+    Polyline: View,
+    PROVIDER_GOOGLE: 'google',
+  };
+});
+
 jest.mock('react-native-mmkv', () => {
   const store = new Map<string, string>();
 

@@ -49,6 +49,7 @@ export function CatalogScreen({navigation}: Props) {
   const categories = useAppSelector(selectCategories);
   const selectedCategory = useAppSelector(selectSelectedCategory);
   const searchQuery = useAppSelector(selectSearchQuery);
+  const activeOrderId = useAppSelector(state => state.tracking.orderId);
   const {isOffline} = useNetwork();
   const {width} = useWindowDimensions();
 
@@ -80,15 +81,25 @@ export function CatalogScreen({navigation}: Props) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable
-          onPress={() => navigation.navigate('Cart')}
-          hitSlop={8}
-          style={styles.headerButton}>
-          <Text style={styles.headerButtonText}>Cart</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          {activeOrderId ? (
+            <Pressable
+              onPress={() => navigation.navigate('Tracking')}
+              hitSlop={8}
+              style={styles.headerButton}>
+              <Text style={styles.headerButtonText}>Track</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => navigation.navigate('Cart')}
+            hitSlop={8}
+            style={styles.headerButton}>
+            <Text style={styles.headerButtonText}>Cart</Text>
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation]);
+  }, [activeOrderId, navigation]);
 
   useEffect(() => {
     return () => {
@@ -301,6 +312,11 @@ const styles = StyleSheet.create({
   headerButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   headerButtonText: {
     color: colors.textOnDark,
