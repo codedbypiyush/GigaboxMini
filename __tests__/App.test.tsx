@@ -5,6 +5,11 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 
+jest.mock('react-native-bootsplash', () => ({
+  hide: jest.fn(() => Promise.resolve()),
+  isVisible: jest.fn(() => Promise.resolve(false)),
+}));
+
 jest.mock('react-native-mmkv', () => {
   const store = new Map<string, string>();
 

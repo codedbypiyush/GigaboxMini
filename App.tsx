@@ -1,5 +1,4 @@
 /**
- * App entry re-exports the Phase 1 root from src/.
- * Native BootSplash wiring lands in the next Phase 1 step.
+ * App entry re-exports the root component from src/.
  */
 export {default} from './src/App';
