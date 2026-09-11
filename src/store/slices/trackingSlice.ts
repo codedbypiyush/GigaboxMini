@@ -10,31 +10,23 @@ export type TrackingStatus =
 type TrackingState = {
   orderId: string | null;
   orderPlacedAt: number | null;
-  status: TrackingStatus;
 };
 
 const initialState: TrackingState = {
   orderId: null,
   orderPlacedAt: null,
-  status: null,
-};
-
-type StartTrackingPayload = {
-  orderId: string;
-  orderPlacedAt: number;
 };
 
 const trackingSlice = createSlice({
   name: 'tracking',
   initialState,
   reducers: {
-    startTracking(state, action: PayloadAction<StartTrackingPayload>) {
+    startTracking(
+      state,
+      action: PayloadAction<{orderId: string; orderPlacedAt: number}>,
+    ) {
       state.orderId = action.payload.orderId;
       state.orderPlacedAt = action.payload.orderPlacedAt;
-      state.status = 'PLACED';
-    },
-    setTrackingStatus(state, action: PayloadAction<TrackingStatus>) {
-      state.status = action.payload;
     },
     clearTracking() {
       return initialState;
@@ -42,7 +34,6 @@ const trackingSlice = createSlice({
   },
 });
 
-export const {startTracking, setTrackingStatus, clearTracking} =
-  trackingSlice.actions;
+export const {startTracking, clearTracking} = trackingSlice.actions;
 
 export default trackingSlice.reducer;

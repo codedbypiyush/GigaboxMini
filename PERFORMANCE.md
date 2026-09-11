@@ -29,9 +29,9 @@ Short write-up of the choices that keep Gigabox Mini usable on mid/low-end Andro
 
 ## Order tracking
 
-- Source of truth is `Date.now() - orderPlacedAt` inside `MockTrackingService`.
-- A 1s interval only refreshes the UI while the screen is focused / app is active.
-- On `AppState` → `active` and on screen focus we recalculate immediately, so backgrounding does not “pause” progress incorrectly.
+- Source of truth is `Date.now() - orderPlacedAt` in `MockTrackingService`.
+- UI ticks every **2.5s** and also refreshes on `AppState` active (background-safe).
+- Android map tiles need a Google Maps SDK key in `strings.xml` (see README).
 
 ## Layout / responsiveness
 

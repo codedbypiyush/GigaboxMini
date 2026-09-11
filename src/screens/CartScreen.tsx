@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import React, {useMemo} from 'react';
+import React from 'react';
 import {
   Alert,
   FlatList,
@@ -25,7 +25,6 @@ import {
 } from '../store/slices/cartSlice';
 import {startTracking} from '../store/slices/trackingSlice';
 import {colors} from '../theme/colors';
-import {useResponsiveLayout} from '../theme/layout';
 import {
   FREE_DELIVERY_THRESHOLD,
   createOrderId,
@@ -39,14 +38,8 @@ export function CartScreen({navigation}: Props) {
   const items = useAppSelector(selectCartItems);
   const subtotal = useAppSelector(selectCartSubtotal);
   const {isOffline} = useNetwork();
-  const {width, contentMaxWidth, horizontalPadding} = useResponsiveLayout();
-  const contentStyle = {
-    width: Math.min(width, contentMaxWidth),
-    alignSelf: 'center' as const,
-    paddingHorizontal: horizontalPadding,
-  };
 
-  const deliveryFee = useMemo(() => getDeliveryFee(subtotal), [subtotal]);
+  const deliveryFee = getDeliveryFee(subtotal);
   const total = subtotal + deliveryFee;
   const remainingForFreeDelivery = Math.max(
     0,
@@ -109,7 +102,7 @@ export function CartScreen({navigation}: Props) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       {items.length === 0 ? (
-        <View style={[styles.empty, contentStyle]}>
+        <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>
             Add products from the catalog to get started.
@@ -126,9 +119,9 @@ export function CartScreen({navigation}: Props) {
             data={items}
             keyExtractor={item => String(item.productId)}
             renderItem={renderItem}
-            contentContainerStyle={[styles.list, contentStyle]}
+            contentContainerStyle={styles.list}
           />
-          <View style={[styles.summary, contentStyle]}>
+          <View style={styles.summary}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
@@ -170,7 +163,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
-    paddingTop: 12,
+    padding: '4%',
     paddingBottom: 24,
   },
   card: {
@@ -210,6 +203,7 @@ const styles = StyleSheet.create({
   summary: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    paddingHorizontal: '5%',
     paddingTop: 14,
     paddingBottom: 10,
     gap: 8,
@@ -265,6 +259,7 @@ const styles = StyleSheet.create({
   empty: {
     flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: '8%',
     gap: 10,
   },
   emptyTitle: {

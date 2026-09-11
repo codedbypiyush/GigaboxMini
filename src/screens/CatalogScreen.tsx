@@ -36,7 +36,7 @@ import {
   type CatalogProduct,
 } from '../store/slices/catalogSlice';
 import {colors} from '../theme/colors';
-import {useResponsiveLayout} from '../theme/layout';
+import {useCatalogLayout} from '../theme/layout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Catalog'>;
 
@@ -56,27 +56,32 @@ export function CatalogScreen({navigation}: Props) {
   const isLoadingMore = useAppSelector(selectIsLoadingMoreCatalog);
   const activeOrderId = useAppSelector(state => state.tracking.orderId);
   const {isOffline} = useNetwork();
-  const {horizontalPadding, gap, numColumns, cardWidth} = useResponsiveLayout();
+  const {horizontalPadding, gap, numColumns, cardWidth} = useCatalogLayout();
 
   const [draftQuery, setDraftQuery] = useState(searchQuery);
   const searchAbortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearching = draftQuery.trim().length > 0;
 
+  // Load first page once. Pagination is handled by onEndReached → fetchMoreCatalog.
   useEffect(() => {
-    const load = async () => {
-      try {
-        await dispatch(fetchCatalog({force: cachedCount === 0})).unwrap();
-        await dispatch(loadCategories());
-      } catch {
-        // Errors live in the catalog slice; cached products still render.
-      }
-    };
-
-    if (!isOffline || cachedCount === 0) {
-      load();
+    if (isOffline && cachedCount > 0) {
+      return;
     }
-  }, [cachedCount, dispatch, isOffline]);
+    dispatch(fetchCatalog());
+    dispatch(loadCategories());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; don't reset on page growth
+  }, [dispatch]);
+
+  // Assignment: retry gracefully when connectivity returns.
+  const wasOfflineRef = useRef(isOffline);
+  useEffect(() => {
+    if (wasOfflineRef.current && !isOffline) {
+      dispatch(fetchCatalog());
+      dispatch(loadCategories());
+    }
+    wasOfflineRef.current = isOffline;
+  }, [dispatch, isOffline]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -288,7 +293,7 @@ export function CatalogScreen({navigation}: Props) {
           {!isOffline ? (
             <Pressable
               style={styles.retryButton}
-              onPress={() => dispatch(fetchCatalog({force: true}))}>
+              onPress={() => dispatch(fetchCatalog())}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </Pressable>
           ) : null}

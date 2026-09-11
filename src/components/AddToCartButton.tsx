@@ -1,4 +1,4 @@
-import React, {memo, useEffect} from 'react';
+import React, {memo} from 'react';
 import {Pressable, StyleSheet, Text} from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -25,10 +25,6 @@ function AddToCartButtonComponent({
 }: Props) {
   const scale = useSharedValue(1);
   const success = useSharedValue(0);
-
-  useEffect(() => {
-    success.value = 0;
-  }, [success]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{scale: scale.value}],
@@ -73,9 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disabled: {
-    opacity: 0.5,
-  },
+  disabled: {opacity: 0.5},
   label: {
     color: colors.primaryButtonText,
     fontSize: 16,

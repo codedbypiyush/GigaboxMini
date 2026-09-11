@@ -18,7 +18,6 @@ import trackingReducer from './slices/trackingSlice';
 const catalogPersistConfig = {
   key: 'catalog',
   storage: mmkvStorage,
-  // Cache products (+ total) so offline browse and pagination meta survive restarts.
   whitelist: ['products', 'total'],
 };
 
@@ -28,16 +27,15 @@ const rootReducer = combineReducers({
   tracking: trackingReducer,
 });
 
+// Persist cart + tracking at root; catalog products/total via nested config above.
 const persistConfig = {
   key: 'root',
   storage: mmkvStorage,
   whitelist: ['cart', 'tracking'],
 };
 
-const persistedReducer = persistReducer(persistConfig, rootReducer);
-
 export const store = configureStore({
-  reducer: persistedReducer,
+  reducer: persistReducer(persistConfig, rootReducer),
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({
       serializableCheck: {

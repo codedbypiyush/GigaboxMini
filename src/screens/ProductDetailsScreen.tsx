@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Carousel} from 'react-native-reanimated-carousel';
@@ -20,7 +21,6 @@ import {useAppDispatch, useAppSelector} from '../store/hooks';
 import {addToCart, selectCartItems} from '../store/slices/cartSlice';
 import type {CatalogProduct} from '../store/slices/catalogSlice';
 import {colors} from '../theme/colors';
-import {useResponsiveLayout} from '../theme/layout';
 import {getDiscountedPrice} from '../utils/commerce';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
@@ -28,9 +28,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
 export function ProductDetailsScreen({route, navigation}: Props) {
   const {productId} = route.params;
   const dispatch = useAppDispatch();
-  const {width, contentMaxWidth, horizontalPadding} = useResponsiveLayout();
+  const {width} = useWindowDimensions();
   const cartItems = useAppSelector(selectCartItems);
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const inCartQty =
+    cartItems.find(item => item.productId === productId)?.quantity ?? 0;
   const cachedProduct = useAppSelector(state =>
     state.catalog.products.find(product => product.id === productId),
   );
@@ -41,6 +43,7 @@ export function ProductDetailsScreen({route, navigation}: Props) {
   const [product, setProduct] = useState<CatalogProduct | undefined>(
     cachedProduct ?? searchMatch,
   );
+  // Stepper = how many of this product to add on the next "Add to Cart" press.
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(!cachedProduct && !searchMatch);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +108,8 @@ export function ProductDetailsScreen({route, navigation}: Props) {
         quantity,
       }),
     );
+    // Stepper is "how many to add next time" — reset after a successful add.
+    setQuantity(1);
   };
 
   if (loading) {
@@ -130,40 +135,29 @@ export function ProductDetailsScreen({route, navigation}: Props) {
     );
   }
 
-  const carouselWidth = Math.min(width, contentMaxWidth);
-  const carouselHeight = Math.min(carouselWidth * 0.9, 420);
+  const carouselHeight = Math.min(width * 0.9, 420);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.carouselWrap, {width: carouselWidth}]}>
-          <Carousel
-            style={{width: carouselWidth, height: carouselHeight}}
-            itemSize={carouselWidth}
-            data={images}
-            loop={images.length > 1}
-            snapMode="page"
-            renderItem={({item}: {item: string}) => (
-              <Image
-                source={{uri: item}}
-                style={styles.image}
-                resizeMode="cover"
-              />
-            )}
-          />
-        </View>
+        <Carousel
+          style={{width, height: carouselHeight}}
+          itemSize={width}
+          data={images}
+          loop={images.length > 1}
+          snapMode="page"
+          renderItem={({item}: {item: string}) => (
+            <Image
+              source={{uri: item}}
+              style={styles.image}
+              resizeMode="cover"
+            />
+          )}
+        />
 
-        <View
-          style={[
-            styles.body,
-            {
-              width: carouselWidth,
-              paddingHorizontal: horizontalPadding,
-              alignSelf: 'center',
-            },
-          ]}>
+        <View style={styles.body}>
           <Text style={styles.category}>{product.category}</Text>
           <Text style={styles.title}>{product.title}</Text>
           <View style={styles.priceRow}>
@@ -182,6 +176,9 @@ export function ProductDetailsScreen({route, navigation}: Props) {
           <Text style={styles.description}>{product.description}</Text>
 
           <Text style={styles.sectionLabel}>Quantity</Text>
+          {inCartQty > 0 ? (
+            <Text style={styles.inCartHint}>{inCartQty} already in cart</Text>
+          ) : null}
           <QuantityStepper quantity={quantity} onChange={setQuantity} />
 
           <View style={styles.cta}>
@@ -211,10 +208,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 32,
-    alignItems: 'center',
-  },
-  carouselWrap: {
-    alignSelf: 'center',
   },
   image: {
     width: '100%',
@@ -222,6 +215,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
   },
   body: {
+    paddingHorizontal: '5%',
     paddingTop: 18,
     gap: 10,
   },
@@ -274,6 +268,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  inCartHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: -4,
   },
   cta: {
     marginTop: 18,

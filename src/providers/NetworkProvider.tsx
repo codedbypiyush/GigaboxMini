@@ -1,79 +1,25 @@
-import NetInfo, {
-  type NetInfoState,
-  type NetInfoSubscription,
-} from '@react-native-community/netinfo';
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import NetInfo, {type NetInfoState} from '@react-native-community/netinfo';
+import React, {createContext, useContext, useEffect, useState} from 'react';
 
-type NetworkContextValue = {
-  isOffline: boolean;
-  isConnected: boolean;
-  isInternetReachable: boolean | null;
-};
+const NetworkContext = createContext({isOffline: false});
 
-const NetworkContext = createContext<NetworkContextValue>({
-  isOffline: false,
-  isConnected: true,
-  isInternetReachable: true,
-});
-
-function deriveOffline(state: NetInfoState): boolean {
-  if (state.isConnected === false) {
-    return true;
-  }
-
-  if (state.isInternetReachable === false) {
-    return true;
-  }
-
-  return false;
+function isOfflineState(state: NetInfoState) {
+  return state.isConnected === false || state.isInternetReachable === false;
 }
 
-type Props = {
-  children: React.ReactNode;
-};
-
-export function NetworkProvider({children}: Props) {
-  const [network, setNetwork] = useState<NetworkContextValue>({
-    isOffline: false,
-    isConnected: true,
-    isInternetReachable: true,
-  });
+export function NetworkProvider({children}: {children: React.ReactNode}) {
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    const applyState = (state: NetInfoState) => {
-      setNetwork({
-        isConnected: state.isConnected ?? false,
-        isInternetReachable: state.isInternetReachable,
-        isOffline: deriveOffline(state),
-      });
-    };
-
-    let unsubscribe: NetInfoSubscription | undefined;
-
-    NetInfo.fetch()
-      .then(applyState)
-      .catch(() => {
-        // NetInfo failures should not crash the app; assume online and continue.
-      })
-      .finally(() => {
-        unsubscribe = NetInfo.addEventListener(applyState);
-      });
-
-    return () => {
-      unsubscribe?.();
-    };
+    const apply = (state: NetInfoState) => setIsOffline(isOfflineState(state));
+    NetInfo.fetch().then(apply).catch(() => {});
+    return NetInfo.addEventListener(apply);
   }, []);
 
-  const value = useMemo(() => network, [network]);
-
   return (
-    <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
+    <NetworkContext.Provider value={{isOffline}}>
+      {children}
+    </NetworkContext.Provider>
   );
 }
 
