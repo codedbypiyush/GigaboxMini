@@ -18,7 +18,7 @@ Short write-up of the choices that keep Gigabox Mini usable on mid/low-end Andro
 
 ## State & persistence
 
-- Only cart + tracking (and catalog `products` for offline) go through **redux-persist**.
+- Persist cart + tracking (and catalog `products` / `total` / `categories` for offline) go through **redux-persist**.
 - Storage engine is **MMKV** (`react-native-mmkv`) — sync reads, cheap for restart survival without AsyncStorage latency.
 - Ephemeral UI (search query, loading flags, selected category) is not persisted.
 

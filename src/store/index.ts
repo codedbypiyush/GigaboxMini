@@ -18,7 +18,7 @@ import trackingReducer from './slices/trackingSlice';
 const catalogPersistConfig = {
   key: 'catalog',
   storage: mmkvStorage,
-  whitelist: ['products', 'total'],
+  whitelist: ['products', 'total', 'categories'],
 };
 
 const rootReducer = combineReducers({

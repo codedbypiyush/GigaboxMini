@@ -19,13 +19,16 @@ import {useNetwork} from '../providers/NetworkProvider';
 import {useAppDispatch, useAppSelector} from '../store/hooks';
 import {
   fetchCatalog,
+  fetchCategoryCatalog,
   fetchMoreCatalog,
+  hydrateCategoriesFromProducts,
   loadCategories,
   searchCachedCatalog,
   searchCatalog,
   selectCatalogError,
   selectCatalogStatus,
   selectCategories,
+  selectCategoryStatus,
   selectHasMoreCatalog,
   selectIsLoadingMoreCatalog,
   selectSearchQuery,
@@ -49,6 +52,7 @@ export function CatalogScreen({navigation}: Props) {
   const cachedCount = useAppSelector(state => state.catalog.products.length);
   const status = useAppSelector(selectCatalogStatus);
   const searchStatus = useAppSelector(selectSearchStatus);
+  const categoryStatus = useAppSelector(selectCategoryStatus);
   const error = useAppSelector(selectCatalogError);
   const categories = useAppSelector(selectCategories);
   const selectedCategory = useAppSelector(selectSelectedCategory);
@@ -63,17 +67,22 @@ export function CatalogScreen({navigation}: Props) {
   const searchAbortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearching = draftQuery.trim().length > 0;
+  const isCategoryBrowse = selectedCategory !== null;
 
   // Load first page once. Pagination is handled by onEndReached → fetchMoreCatalog.
   useEffect(() => {
-    if (cachedCount > 0) {
-      return;
+    if (cachedCount === 0 && !isOffline) {
+      dispatch(fetchCatalog());
     }
-    if (isOffline) {
-      return;
+    // Chips are persisted; if missing after kill/reopen, rebuild from cache / API.
+    if (categories.length === 0) {
+      dispatch(hydrateCategoriesFromProducts());
+      if (!isOffline) {
+        dispatch(loadCategories());
+      }
+    } else if (cachedCount === 0 && !isOffline) {
+      dispatch(loadCategories());
     }
-    dispatch(fetchCatalog());
-    dispatch(loadCategories());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; don't reset on page growth
   }, [dispatch]);
 
@@ -175,8 +184,13 @@ export function CatalogScreen({navigation}: Props) {
   const onSelectCategory = useCallback(
     (category: string | null) => {
       dispatch(setSelectedCategory(category));
+      // Online: DummyJSON /category/{slug} so chips work without scrolling All first.
+      // Offline: leave categoryResults null → filter already-cached products.
+      if (category && !isOffline) {
+        dispatch(fetchCategoryCatalog(category));
+      }
     },
-    [dispatch],
+    [dispatch, isOffline],
   );
 
   const onProductPress = useCallback(
@@ -187,14 +201,27 @@ export function CatalogScreen({navigation}: Props) {
   );
 
   const onEndReached = useCallback(() => {
-    if (isOffline || isSearching || !hasMore || isLoadingMore) {
+    if (
+      isOffline ||
+      isSearching ||
+      isCategoryBrowse ||
+      !hasMore ||
+      isLoadingMore
+    ) {
       return;
     }
     dispatch(fetchMoreCatalog());
-  }, [dispatch, hasMore, isLoadingMore, isOffline, isSearching]);
+  }, [
+    dispatch,
+    hasMore,
+    isCategoryBrowse,
+    isLoadingMore,
+    isOffline,
+    isSearching,
+  ]);
 
   const listFooter = useMemo(() => {
-    if (!isLoadingMore || isSearching) {
+    if (!isLoadingMore || isSearching || isCategoryBrowse) {
       return null;
     }
 
@@ -204,7 +231,7 @@ export function CatalogScreen({navigation}: Props) {
         <Text style={styles.footerText}>Loading more…</Text>
       </View>
     );
-  }, [isLoadingMore, isSearching]);
+  }, [isCategoryBrowse, isLoadingMore, isSearching]);
 
   const renderItem = useCallback(
     ({item, index}: {item: CatalogProduct; index: number}) => {
@@ -245,7 +272,13 @@ export function CatalogScreen({navigation}: Props) {
             <Text style={styles.searchingText}>Searching…</Text>
           </View>
         ) : null}
-        {error && cachedCount > 0 && !draftQuery.trim() ? (
+        {categoryStatus === 'loading' ? (
+          <View style={styles.searchingRow}>
+            <ActivityIndicator color={colors.actionGreen} size="small" />
+            <Text style={styles.searchingText}>Loading category…</Text>
+          </View>
+        ) : null}
+        {error && cachedCount > 0 && !draftQuery.trim() && !selectedCategory ? (
           <View style={styles.inlineNotice}>
             <Text style={styles.inlineNoticeText}>
               {isOffline
@@ -261,11 +294,20 @@ export function CatalogScreen({navigation}: Props) {
             </Text>
           </View>
         ) : null}
+        {isOffline && selectedCategory ? (
+          <View style={styles.inlineNotice}>
+            <Text style={styles.inlineNoticeText}>
+              Offline category — showing matches in previously fetched pages
+              only.
+            </Text>
+          </View>
+        ) : null}
       </View>
     );
   }, [
     cachedCount,
     categories,
+    categoryStatus,
     draftQuery,
     error,
     isOffline,
@@ -283,6 +325,7 @@ export function CatalogScreen({navigation}: Props) {
     !showSkeleton &&
     !showEmptyError &&
     !showSearchError &&
+    categoryStatus !== 'loading' &&
     products.length === 0 &&
     (draftQuery.trim().length > 0 || selectedCategory !== null);
 

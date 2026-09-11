@@ -110,6 +110,16 @@ export async function searchProducts(
   return data.products.map(mapProduct);
 }
 
+/** All products in one DummyJSON category (no need to scroll browse pages first). */
+export async function fetchProductsByCategory(
+  category: string,
+  signal?: AbortSignal,
+): Promise<CatalogProduct[]> {
+  const url = `${PRODUCTS_URL}/category/${encodeURIComponent(category)}?limit=100`;
+  const data = await apiGet<DummyJsonProductsResponse>(url, {signal});
+  return data.products.map(mapProduct);
+}
+
 export async function fetchCategories(
   signal?: AbortSignal,
 ): Promise<string[]> {

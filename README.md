@@ -61,7 +61,7 @@ Outputs under `android/app/build/outputs/apk/release/` (prefer `app-arm64-v8a-re
 3. **Cart** — edit/remove, free delivery above **$50**, mock checkout → local order id  
 4. **Tracking** — map + PLACED → PACKED → OUT_FOR_DELIVERY → DELIVERED  
 
-Cart + active tracking survive restarts (MMKV). Catalog `products` / `total` are cached for offline browse after at least one online fetch.
+Cart + active tracking survive restarts (MMKV). Catalog `products` / `total` / `categories` are cached for offline browse after at least one online fetch.
 
 ## Architecture
 
@@ -74,7 +74,7 @@ Cart + active tracking survive restarts (MMKV). Catalog `products` / `total` are
 | `src/providers` | NetInfo → `isOffline` |
 | `src/navigation` | Native stack: Catalog → Details → Cart → Tracking |
 
-**Catalog:** screen → thunk → `api/products` → slice → FlashList (`onEndReached` pages with `skip`/`limit`).  
+**Catalog:** screen → thunk → `api/products` → slice → FlashList (`onEndReached` pages with `skip`/`limit`). Online category chips use `/products/category/{slug}` so results appear without scrolling All first; offline filters the cache.  
 
 **Search:** debounce (~350ms). Online → DummyJSON `/search` (abort previous). Offline → filter cached `products` by title/category/description.  
 

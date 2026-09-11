@@ -4,6 +4,7 @@ import {
   CATALOG_PAGE_SIZE,
   fetchCategories,
   fetchProducts,
+  fetchProductsByCategory,
   searchProducts,
 } from '../../api/products';
 import {isAbortError} from '../../api/client';
@@ -24,9 +25,12 @@ type CatalogStatus = 'idle' | 'loading' | 'succeeded' | 'failed';
 type CatalogState = {
   products: CatalogProduct[];
   searchResults: CatalogProduct[] | null;
+  /** Online category fetch; null = fall back to filtering `products` (offline). */
+  categoryResults: CatalogProduct[] | null;
   categories: string[];
   status: CatalogStatus;
   searchStatus: CatalogStatus;
+  categoryStatus: CatalogStatus;
   error: string | null;
   selectedCategory: string | null;
   searchQuery: string;
@@ -37,9 +41,11 @@ type CatalogState = {
 const initialState: CatalogState = {
   products: [],
   searchResults: null,
+  categoryResults: null,
   categories: [],
   status: 'idle',
   searchStatus: 'idle',
+  categoryStatus: 'idle',
   error: null,
   selectedCategory: null,
   searchQuery: '',
@@ -51,6 +57,10 @@ type SearchCatalogArgs = {
   query: string;
   signal?: AbortSignal;
 };
+
+function categoriesFromProducts(products: CatalogProduct[]) {
+  return Array.from(new Set(products.map(product => product.category))).sort();
+}
 
 /** First page (skip=0). */
 export const fetchCatalog = createAsyncThunk(
@@ -104,6 +114,19 @@ export const searchCatalog = createAsyncThunk(
   },
 );
 
+export const fetchCategoryCatalog = createAsyncThunk(
+  'catalog/fetchCategoryCatalog',
+  async (category: string, {rejectWithValue}) => {
+    try {
+      return await fetchProductsByCategory(category);
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to load category',
+      );
+    }
+  },
+);
+
 export const loadCategories = createAsyncThunk(
   'catalog/loadCategories',
   async (_, {rejectWithValue}) => {
@@ -123,6 +146,8 @@ const catalogSlice = createSlice({
   reducers: {
     setSelectedCategory(state, action: PayloadAction<string | null>) {
       state.selectedCategory = action.payload;
+      state.categoryResults = null;
+      state.categoryStatus = 'idle';
     },
     setSearchQuery(state, action: PayloadAction<string>) {
       state.searchQuery = action.payload;
@@ -145,6 +170,12 @@ const catalogSlice = createSlice({
       );
       state.searchStatus = 'succeeded';
     },
+    /** After rehydrate: rebuild chips from cached products if categories were empty. */
+    hydrateCategoriesFromProducts(state) {
+      if (state.categories.length === 0 && state.products.length > 0) {
+        state.categories = categoriesFromProducts(state.products);
+      }
+    },
   },
   extraReducers: builder => {
     builder
@@ -158,9 +189,7 @@ const catalogSlice = createSlice({
         state.status = 'succeeded';
         state.error = null;
         if (state.categories.length === 0) {
-          state.categories = Array.from(
-            new Set(action.payload.products.map(p => p.category)),
-          ).sort();
+          state.categories = categoriesFromProducts(action.payload.products);
         }
       })
       .addCase(fetchCatalog.rejected, (state, action) => {
@@ -195,6 +224,18 @@ const catalogSlice = createSlice({
         state.searchResults = [];
         state.error = (action.payload as string) ?? 'Failed to search catalog';
       })
+      .addCase(fetchCategoryCatalog.pending, state => {
+        state.categoryStatus = 'loading';
+      })
+      .addCase(fetchCategoryCatalog.fulfilled, (state, action) => {
+        state.categoryResults = action.payload;
+        state.categoryStatus = 'succeeded';
+      })
+      .addCase(fetchCategoryCatalog.rejected, (state, action) => {
+        state.categoryStatus = 'failed';
+        state.categoryResults = [];
+        state.error = (action.payload as string) ?? 'Failed to load category';
+      })
       .addCase(loadCategories.fulfilled, (state, action) => {
         state.categories = action.payload;
       });
@@ -205,6 +246,7 @@ export const {
   setSelectedCategory,
   setSearchQuery,
   searchCachedCatalog,
+  hydrateCategoriesFromProducts,
 } = catalogSlice.actions;
 
 export const selectCatalogStatus = (state: {catalog: CatalogState}) =>
@@ -225,6 +267,9 @@ export const selectCategories = (state: {catalog: CatalogState}) =>
 export const selectSearchStatus = (state: {catalog: CatalogState}) =>
   state.catalog.searchStatus;
 
+export const selectCategoryStatus = (state: {catalog: CatalogState}) =>
+  state.catalog.categoryStatus;
+
 export const selectHasMoreCatalog = (state: {catalog: CatalogState}) =>
   state.catalog.products.length < state.catalog.total;
 
@@ -232,18 +277,21 @@ export const selectIsLoadingMoreCatalog = (state: {catalog: CatalogState}) =>
   state.catalog.isLoadingMore;
 
 export const selectVisibleProducts = (state: {catalog: CatalogState}) => {
-  const source =
-    state.catalog.searchQuery.trim().length > 0
-      ? (state.catalog.searchResults ?? [])
-      : state.catalog.products;
-
-  if (!state.catalog.selectedCategory) {
-    return source;
+  if (state.catalog.searchQuery.trim().length > 0) {
+    return state.catalog.searchResults ?? [];
   }
 
-  return source.filter(
-    product => product.category === state.catalog.selectedCategory,
-  );
+  if (state.catalog.selectedCategory) {
+    // Online fetch fills categoryResults; offline keeps null → filter cache.
+    if (state.catalog.categoryResults !== null) {
+      return state.catalog.categoryResults;
+    }
+    return state.catalog.products.filter(
+      product => product.category === state.catalog.selectedCategory,
+    );
+  }
+
+  return state.catalog.products;
 };
 
 export default catalogSlice.reducer;
