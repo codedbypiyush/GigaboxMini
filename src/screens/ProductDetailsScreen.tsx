@@ -12,11 +12,12 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {Carousel} from 'react-native-reanimated-carousel';
 
 import {fetchProductById} from '../api/products';
+import {isAbortError} from '../api/client';
 import {AddToCartButton} from '../components/AddToCartButton';
 import {QuantityStepper} from '../components/QuantityStepper';
 import type {RootStackParamList} from '../navigation/types';
 import {useAppDispatch, useAppSelector} from '../store/hooks';
-import {addToCart} from '../store/slices/cartSlice';
+import {addToCart, selectCartItems} from '../store/slices/cartSlice';
 import type {CatalogProduct} from '../store/slices/catalogSlice';
 import {colors} from '../theme/colors';
 import {useResponsiveLayout} from '../theme/layout';
@@ -28,6 +29,8 @@ export function ProductDetailsScreen({route, navigation}: Props) {
   const {productId} = route.params;
   const dispatch = useAppDispatch();
   const {width, contentMaxWidth, horizontalPadding} = useResponsiveLayout();
+  const cartItems = useAppSelector(selectCartItems);
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const cachedProduct = useAppSelector(state =>
     state.catalog.products.find(product => product.id === productId),
   );
@@ -58,7 +61,7 @@ export function ProductDetailsScreen({route, navigation}: Props) {
         navigation.setOptions({title: remote.title});
         setError(null);
       } catch (err) {
-        if (err instanceof Error && err.message === 'Request was cancelled') {
+        if (isAbortError(err)) {
           return;
         }
         setError(
@@ -182,7 +185,18 @@ export function ProductDetailsScreen({route, navigation}: Props) {
           <QuantityStepper quantity={quantity} onChange={setQuantity} />
 
           <View style={styles.cta}>
-            <AddToCartButton onPress={onAddToCart} />
+            <View style={styles.ctaRow}>
+              <View style={styles.ctaButton}>
+                <AddToCartButton onPress={onAddToCart} />
+              </View>
+              <View
+                style={styles.cartCount}
+                accessibilityRole="text"
+                accessibilityLabel={`${cartCount} items in cart`}>
+                <Text style={styles.cartCountLabel}>Cart</Text>
+                <Text style={styles.cartCountValue}>{cartCount}</Text>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -263,6 +277,38 @@ const styles = StyleSheet.create({
   },
   cta: {
     marginTop: 18,
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  ctaButton: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cartCount: {
+    minWidth: 64,
+    maxWidth: '28%',
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  cartCountLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+  },
+  cartCountValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   centered: {
     flex: 1,

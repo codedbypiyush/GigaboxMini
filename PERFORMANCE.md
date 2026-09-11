@@ -5,6 +5,7 @@ Short write-up of the choices that keep Gigabox Mini usable on mid/low-end Andro
 ## Catalog scrolling
 
 - Products render through **FlashList** (`@shopify/flash-list`) instead of `FlatList`.
+- Browse mode pages DummyJSON with `limit=20` + `skip=products.length` on `onEndReached` (footer spinner while `isLoadingMore`).
 - Column count comes from window width (`src/theme/layout.ts`): 2 on phones, 3 on tablets, 4 on large tablets.
 - `ProductCard` is wrapped in `React.memo`. `renderItem` / `keyExtractor` use `useCallback` so FlashList does not remount cells on unrelated parent renders.
 - `drawDistance={250}` keeps a modest offscreen buffer without over-allocating views.

@@ -18,8 +18,8 @@ import trackingReducer from './slices/trackingSlice';
 const catalogPersistConfig = {
   key: 'catalog',
   storage: mmkvStorage,
-  // Cache products for offline catalog; transient UI fields stay ephemeral.
-  whitelist: ['products'],
+  // Cache products (+ total) so offline browse and pagination meta survive restarts.
+  whitelist: ['products', 'total'],
 };
 
 const rootReducer = combineReducers({

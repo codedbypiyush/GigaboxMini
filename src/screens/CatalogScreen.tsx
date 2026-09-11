@@ -19,11 +19,14 @@ import {useNetwork} from '../providers/NetworkProvider';
 import {useAppDispatch, useAppSelector} from '../store/hooks';
 import {
   fetchCatalog,
+  fetchMoreCatalog,
   loadCategories,
   searchCatalog,
   selectCatalogError,
   selectCatalogStatus,
   selectCategories,
+  selectHasMoreCatalog,
+  selectIsLoadingMoreCatalog,
   selectSearchQuery,
   selectSearchStatus,
   selectSelectedCategory,
@@ -49,6 +52,8 @@ export function CatalogScreen({navigation}: Props) {
   const categories = useAppSelector(selectCategories);
   const selectedCategory = useAppSelector(selectSelectedCategory);
   const searchQuery = useAppSelector(selectSearchQuery);
+  const hasMore = useAppSelector(selectHasMoreCatalog);
+  const isLoadingMore = useAppSelector(selectIsLoadingMoreCatalog);
   const activeOrderId = useAppSelector(state => state.tracking.orderId);
   const {isOffline} = useNetwork();
   const {horizontalPadding, gap, numColumns, cardWidth} = useResponsiveLayout();
@@ -56,6 +61,7 @@ export function CatalogScreen({navigation}: Props) {
   const [draftQuery, setDraftQuery] = useState(searchQuery);
   const searchAbortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSearching = draftQuery.trim().length > 0;
 
   useEffect(() => {
     const load = async () => {
@@ -165,6 +171,26 @@ export function CatalogScreen({navigation}: Props) {
     },
     [navigation],
   );
+
+  const onEndReached = useCallback(() => {
+    if (isOffline || isSearching || !hasMore || isLoadingMore) {
+      return;
+    }
+    dispatch(fetchMoreCatalog());
+  }, [dispatch, hasMore, isLoadingMore, isOffline, isSearching]);
+
+  const listFooter = useMemo(() => {
+    if (!isLoadingMore || isSearching) {
+      return null;
+    }
+
+    return (
+      <View style={styles.footer}>
+        <ActivityIndicator color={colors.actionGreen} />
+        <Text style={styles.footerText}>Loading more…</Text>
+      </View>
+    );
+  }, [isLoadingMore, isSearching]);
 
   const renderItem = useCallback(
     ({item, index}: {item: CatalogProduct; index: number}) => {
@@ -285,6 +311,9 @@ export function CatalogScreen({navigation}: Props) {
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           ListHeaderComponent={listHeader}
+          ListFooterComponent={listFooter}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
           contentContainerStyle={{
             paddingHorizontal: horizontalPadding,
             paddingTop: 12,
@@ -365,5 +394,14 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.primaryButtonText,
     fontWeight: '600',
+  },
+  footer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerText: {
+    color: colors.textSecondary,
+    fontSize: 13,
   },
 });

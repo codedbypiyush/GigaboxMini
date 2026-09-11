@@ -1,10 +1,13 @@
 import {createAsyncThunk, createSlice, type PayloadAction} from '@reduxjs/toolkit';
 
 import {
+  CATALOG_PAGE_SIZE,
   fetchCategories,
   fetchProducts,
   searchProducts,
+  type ProductsPage,
 } from '../../api/products';
+import {isAbortError} from '../../api/client';
 
 export type CatalogProduct = {
   id: number;
@@ -28,6 +31,9 @@ type CatalogState = {
   error: string | null;
   selectedCategory: string | null;
   searchQuery: string;
+  total: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
 };
 
 const initialState: CatalogState = {
@@ -39,6 +45,9 @@ const initialState: CatalogState = {
   error: null,
   selectedCategory: null,
   searchQuery: '',
+  total: 0,
+  hasMore: true,
+  isLoadingMore: false,
 };
 
 type FetchCatalogArgs = {
@@ -51,8 +60,35 @@ type SearchCatalogArgs = {
   signal?: AbortSignal;
 };
 
+function mergeUnique(
+  existing: CatalogProduct[],
+  incoming: CatalogProduct[],
+): CatalogProduct[] {
+  const seen = new Set(existing.map(product => product.id));
+  const merged = [...existing];
+
+  for (const product of incoming) {
+    if (!seen.has(product.id)) {
+      seen.add(product.id);
+      merged.push(product);
+    }
+  }
+
+  return merged;
+}
+
+function applyPageMeta(state: CatalogState, page: ProductsPage, replace: boolean) {
+  state.products = replace
+    ? page.products
+    : mergeUnique(state.products, page.products);
+  state.total = page.total;
+  state.hasMore = state.products.length < page.total;
+  state.status = 'succeeded';
+  state.error = null;
+}
+
 export const fetchCatalog = createAsyncThunk<
-  CatalogProduct[],
+  ProductsPage,
   FetchCatalogArgs | undefined,
   {rejectValue: string}
 >(
@@ -60,7 +96,8 @@ export const fetchCatalog = createAsyncThunk<
   async (args, {rejectWithValue}) => {
     try {
       return await fetchProducts({
-        limit: 100,
+        limit: CATALOG_PAGE_SIZE,
+        skip: 0,
         signal: args?.signal,
       });
     } catch (error) {
@@ -81,6 +118,49 @@ export const fetchCatalog = createAsyncThunk<
   },
 );
 
+export const fetchMoreCatalog = createAsyncThunk<
+  ProductsPage,
+  void,
+  {rejectValue: string; state: {catalog: CatalogState}}
+>(
+  'catalog/fetchMoreCatalog',
+  async (_, {getState, rejectWithValue}) => {
+    const {products} = getState().catalog;
+
+    try {
+      return await fetchProducts({
+        limit: CATALOG_PAGE_SIZE,
+        skip: products.length,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load more products';
+      return rejectWithValue(message);
+    }
+  },
+  {
+    condition: (_, {getState}) => {
+      const catalog = getState().catalog;
+      const canPage =
+        catalog.total > 0
+          ? catalog.products.length < catalog.total
+          : catalog.hasMore;
+
+      if (!canPage) {
+        return false;
+      }
+      if (catalog.status === 'loading' || catalog.isLoadingMore) {
+        return false;
+      }
+      // Don't page the browse list while a search query is active.
+      if (catalog.searchQuery.trim().length > 0) {
+        return false;
+      }
+      return true;
+    },
+  },
+);
+
 export const searchCatalog = createAsyncThunk<
   CatalogProduct[],
   SearchCatalogArgs,
@@ -93,7 +173,7 @@ export const searchCatalog = createAsyncThunk<
       signal: args.signal,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Request was cancelled') {
+    if (isAbortError(error)) {
       return rejectWithValue('aborted');
     }
 
@@ -125,6 +205,7 @@ const catalogSlice = createSlice({
       state.products = action.payload;
       state.status = 'succeeded';
       state.error = null;
+      state.hasMore = state.total === 0 ? true : action.payload.length < state.total;
     },
     setCatalogStatus(state, action: PayloadAction<CatalogStatus>) {
       state.status = action.payload;
@@ -159,13 +240,11 @@ const catalogSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchCatalog.fulfilled, (state, action) => {
-        state.products = action.payload;
-        state.status = 'succeeded';
-        state.error = null;
+        applyPageMeta(state, action.payload, true);
 
         if (state.categories.length === 0) {
           const unique = Array.from(
-            new Set(action.payload.map(product => product.category)),
+            new Set(action.payload.products.map(product => product.category)),
           ).sort();
           state.categories = unique;
         }
@@ -174,6 +253,19 @@ const catalogSlice = createSlice({
         state.status = state.products.length > 0 ? 'succeeded' : 'failed';
         state.error =
           action.payload ?? action.error.message ?? 'Failed to load catalog';
+      })
+      .addCase(fetchMoreCatalog.pending, state => {
+        state.isLoadingMore = true;
+      })
+      .addCase(fetchMoreCatalog.fulfilled, (state, action) => {
+        state.isLoadingMore = false;
+        applyPageMeta(state, action.payload, false);
+      })
+      .addCase(fetchMoreCatalog.rejected, (state, action) => {
+        state.isLoadingMore = false;
+        // Keep already-loaded pages; show a soft error only.
+        state.error =
+          action.payload ?? action.error.message ?? 'Failed to load more products';
       })
       .addCase(searchCatalog.pending, state => {
         state.searchStatus = 'loading';
@@ -228,6 +320,17 @@ export const selectCategories = (state: {catalog: CatalogState}) =>
 
 export const selectSearchStatus = (state: {catalog: CatalogState}) =>
   state.catalog.searchStatus;
+
+export const selectHasMoreCatalog = (state: {catalog: CatalogState}) => {
+  const {products, total, hasMore} = state.catalog;
+  if (total > 0) {
+    return products.length < total;
+  }
+  return hasMore;
+};
+
+export const selectIsLoadingMoreCatalog = (state: {catalog: CatalogState}) =>
+  state.catalog.isLoadingMore;
 
 export const selectVisibleProducts = (state: {catalog: CatalogState}) => {
   const source =

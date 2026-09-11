@@ -3,6 +3,8 @@ import {apiGet} from './client';
 
 const PRODUCTS_URL = 'https://dummyjson.com/products';
 
+export const CATALOG_PAGE_SIZE = 20;
+
 type DummyJsonProduct = {
   id: number;
   title: string;
@@ -28,6 +30,13 @@ type DummyJsonCategory =
       name: string;
       url?: string;
     };
+
+export type ProductsPage = {
+  products: CatalogProduct[];
+  total: number;
+  skip: number;
+  limit: number;
+};
 
 export type FetchProductsParams = {
   limit?: number;
@@ -56,8 +65,8 @@ function mapProduct(product: DummyJsonProduct): CatalogProduct {
 
 export async function fetchProducts(
   params: FetchProductsParams = {},
-): Promise<CatalogProduct[]> {
-  const limit = params.limit ?? 100;
+): Promise<ProductsPage> {
+  const limit = params.limit ?? CATALOG_PAGE_SIZE;
   const skip = params.skip ?? 0;
   const url = `${PRODUCTS_URL}?limit=${limit}&skip=${skip}`;
 
@@ -65,7 +74,12 @@ export async function fetchProducts(
     signal: params.signal,
   });
 
-  return data.products.map(mapProduct);
+  return {
+    products: data.products.map(mapProduct),
+    total: data.total,
+    skip: data.skip,
+    limit: data.limit,
+  };
 }
 
 export async function fetchProductById(
