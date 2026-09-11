@@ -131,6 +131,20 @@ const catalogSlice = createSlice({
         state.searchStatus = 'idle';
       }
     },
+    /**
+     * Offline search: filter already-cached browse pages (title / category / description).
+     * Does not hit the network; only covers products loaded while online.
+     */
+    searchCachedCatalog(state, action: PayloadAction<string>) {
+      const q = action.payload.trim().toLowerCase();
+      state.searchResults = state.products.filter(
+        product =>
+          product.title.toLowerCase().includes(q) ||
+          product.category.toLowerCase().includes(q) ||
+          product.description.toLowerCase().includes(q),
+      );
+      state.searchStatus = 'succeeded';
+    },
   },
   extraReducers: builder => {
     builder
@@ -187,7 +201,11 @@ const catalogSlice = createSlice({
   },
 });
 
-export const {setSelectedCategory, setSearchQuery} = catalogSlice.actions;
+export const {
+  setSelectedCategory,
+  setSearchQuery,
+  searchCachedCatalog,
+} = catalogSlice.actions;
 
 export const selectCatalogStatus = (state: {catalog: CatalogState}) =>
   state.catalog.status;

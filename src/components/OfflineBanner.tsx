@@ -17,7 +17,7 @@ export function OfflineBanner() {
     <View style={[styles.banner, {paddingTop: Math.max(insets.top, 8)}]}>
       <Text style={styles.title}>You are offline</Text>
       <Text style={styles.subtitle}>
-        Showing cached catalog when available. Checkout needs a connection.
+        Cached catalog + local search available. Checkout needs a connection.
       </Text>
     </View>
   );

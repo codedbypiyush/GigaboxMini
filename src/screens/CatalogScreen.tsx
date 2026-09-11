@@ -21,6 +21,7 @@ import {
   fetchCatalog,
   fetchMoreCatalog,
   loadCategories,
+  searchCachedCatalog,
   searchCatalog,
   selectCatalogError,
   selectCatalogStatus,
@@ -127,7 +128,9 @@ export function CatalogScreen({navigation}: Props) {
         return;
       }
 
+      // Offline: filter MMKV-cached browse pages instead of DummyJSON /search.
       if (isOffline) {
+        dispatch(searchCachedCatalog(trimmed));
         return;
       }
 
@@ -248,8 +251,7 @@ export function CatalogScreen({navigation}: Props) {
         {isOffline && draftQuery.trim().length > 0 ? (
           <View style={styles.inlineNotice}>
             <Text style={styles.inlineNoticeText}>
-              Search needs a connection. Clear the query to browse cached
-              products.
+              Offline search — matching previously fetched products only.
             </Text>
           </View>
         ) : null}
@@ -269,9 +271,12 @@ export function CatalogScreen({navigation}: Props) {
 
   const showSkeleton = status === 'loading' && cachedCount === 0;
   const showEmptyError = status === 'failed' && cachedCount === 0;
+  const showSearchError =
+    searchStatus === 'failed' && draftQuery.trim().length > 0;
   const showNoMatches =
     !showSkeleton &&
     !showEmptyError &&
+    !showSearchError &&
     products.length === 0 &&
     (draftQuery.trim().length > 0 || selectedCategory !== null);
 
@@ -297,6 +302,23 @@ export function CatalogScreen({navigation}: Props) {
               <Text style={styles.retryButtonText}>Retry</Text>
             </Pressable>
           ) : null}
+        </View>
+      ) : showSearchError ? (
+        <View style={{flex: 1, paddingHorizontal: horizontalPadding}}>
+          {listHeader}
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Search failed</Text>
+            <Text style={styles.emptySubtitle}>
+              {error ?? 'Something went wrong while searching.'}
+            </Text>
+            {!isOffline ? (
+              <Pressable
+                style={styles.retryButton}
+                onPress={() => runSearch(draftQuery)}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : showNoMatches ? (
         <View style={{flex: 1, paddingHorizontal: horizontalPadding}}>

@@ -103,7 +103,11 @@ export function TrackingScreen({navigation}: Props) {
             strokeColor={colors.actionGreen}
             strokeWidth={4}
           />
-          <Marker coordinate={snapshot.store} title="Store" pinColor={colors.navyStore} />
+          <Marker
+            coordinate={snapshot.store}
+            title="Store"
+            pinColor={colors.navyStore}
+          />
           <Marker
             coordinate={snapshot.customer}
             title="Delivery"

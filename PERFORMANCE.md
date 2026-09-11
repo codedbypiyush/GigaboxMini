@@ -14,7 +14,7 @@ Short write-up of the choices that keep Gigabox Mini usable on mid/low-end Andro
 
 - Input is debounced (~350ms) so we do not hit DummyJSON on every key.
 - Every keystroke **aborts** the previous in-flight request via `AbortController` before scheduling the next debounce tick. That way a slow older response cannot overwrite newer results.
-- Offline: search is skipped; cached catalog still shows when the query is cleared.
+- Offline: filter cached `products` (title / category / description). Online still uses DummyJSON `/search` + abort.
 
 ## State & persistence
 

@@ -31,7 +31,9 @@ iOS (first clone / after native dependency changes):
 
 ```sh
 bundle install
+cd ios
 bundle exec pod install
+cd ..
 npm run ios
 ```
 
@@ -40,6 +42,7 @@ npm run ios
 ```sh
 cd android
 ./gradlew assembleRelease
+# Windows: gradlew.bat assembleRelease
 ```
 
 Outputs under `android/app/build/outputs/apk/release/` (prefer `app-arm64-v8a-release.apk` or `app-universal-release.apk` on modern phones).
@@ -73,7 +76,7 @@ Cart + active tracking survive restarts (MMKV). Catalog `products` / `total` are
 
 **Catalog:** screen → thunk → `api/products` → slice → FlashList (`onEndReached` pages with `skip`/`limit`).  
 
-**Search:** debounce (~350ms) + abort previous request so stale responses never win.  
+**Search:** debounce (~350ms). Online → DummyJSON `/search` (abort previous). Offline → filter cached `products` by title/category/description.  
 
 **Tracking:** checkout stores `orderId` + `orderPlacedAt` → UI ticks every **2.5s** calling `getTrackingSnapshot(orderPlacedAt)` → also refresh on `AppState` active (background-safe).
 
@@ -92,13 +95,13 @@ src/
 
 ## Assumptions
 
-- **Pagination:** Browse uses pages of 20 via FlashList `onEndReached`. Search is one request (limit 100) so abort-on-type stays simple.
+- **Pagination:** Browse uses pages of 20 via FlashList `onEndReached`. Online search is one request (limit 100) so abort-on-type stays simple.
 - **No backend for orders:** Mock checkout + local tracking only.
 - **Single active order:** A new checkout replaces the previous tracking session (no order history).
 - **Maps (Android):** Placeholder `YOUR_GOOGLE_MAPS_API_KEY` → blank tiles until a real key is set and the app is rebuilt.
 - **Delivery fee:** Free above **$50** subtotal (`src/utils/commerce.ts`).
 - **Tracking demo speed:** Short phases (~15s / 35s / 90s) so reviewers see full progression quickly.
-- **Offline:** Banner + browse **previously fetched** catalog pages. Search and checkout need network. Reconnect triggers a catalog refresh.
+- **Offline:** Banner + browse **previously fetched** catalog pages. Offline search filters that cache. Checkout still needs network. Reconnect triggers a catalog refresh.
 - **Product quantity stepper:** Controls “how many to add” on Add to Cart; cart badge is cart total.
 
 ## What I would do next
@@ -113,7 +116,7 @@ src/
 ## AI tools used
 
 - **Cursor** helped with scaffolding, native packaging checks, and iterating on UI/API wiring.
-- Product decisions (abort-on-search, MMKV whitelist, timestamp tracking, pagination) were kept intentional and explainable for the review call.
+- Product decisions (abort-on-search, MMKV whitelist, timestamp tracking, pagination, offline cache search) were kept intentional and explainable for the review call.
 - Gaps vs the brief are listed under **Assumptions** / **What I would do next**.
 
 ## Google Maps API key (Android)

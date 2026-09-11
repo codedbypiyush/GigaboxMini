@@ -1,5 +1,7 @@
-import React, {memo, useCallback} from 'react';
+import React, {memo, useCallback, useEffect, useRef} from 'react';
 import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,9 @@ type Props = {
   onSelect: (category: string | null) => void;
 };
 
+/** Survives FlashList header remounts when a chip is selected. */
+let savedScrollX = 0;
+
 function formatCategoryLabel(category: string) {
   return category
     .split('-')
@@ -27,16 +32,38 @@ function CategoryChipsComponent({
   selectedCategory,
   onSelect,
 }: Props) {
+  const scrollRef = useRef<ScrollView>(null);
+
   const onPressAll = useCallback(() => {
     onSelect(null);
   }, [onSelect]);
 
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      savedScrollX = event.nativeEvent.contentOffset.x;
+    },
+    [],
+  );
+
+  // Selecting a chip rebuilds the catalog header → ScrollView remounts at x=0.
+  useEffect(() => {
+    if (savedScrollX <= 0) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({x: savedScrollX, animated: false});
+    });
+  }, [selectedCategory]);
+
   return (
     <View style={styles.wrapper}>
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+        contentContainerStyle={styles.content}
+        onScroll={onScroll}
+        scrollEventThrottle={16}>
         <Pressable
           onPress={onPressAll}
           style={[styles.chip, selectedCategory === null && styles.chipActive]}>
