@@ -66,7 +66,10 @@ export function CatalogScreen({navigation}: Props) {
 
   // Load first page once. Pagination is handled by onEndReached → fetchMoreCatalog.
   useEffect(() => {
-    if (isOffline && cachedCount > 0) {
+    if (cachedCount > 0) {
+      return;
+    }
+    if (isOffline) {
       return;
     }
     dispatch(fetchCatalog());
@@ -74,15 +77,18 @@ export function CatalogScreen({navigation}: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; don't reset on page growth
   }, [dispatch]);
 
-  // Assignment: retry gracefully when connectivity returns.
+  // Retry on reconnect only when we have nothing usable — avoid wiping
+  // already-paginated cache (client category filter would then look empty).
   const wasOfflineRef = useRef(isOffline);
   useEffect(() => {
     if (wasOfflineRef.current && !isOffline) {
-      dispatch(fetchCatalog());
-      dispatch(loadCategories());
+      if (cachedCount === 0 || status === 'failed') {
+        dispatch(fetchCatalog());
+        dispatch(loadCategories());
+      }
     }
     wasOfflineRef.current = isOffline;
-  }, [dispatch, isOffline]);
+  }, [cachedCount, dispatch, isOffline, status]);
 
   useEffect(() => {
     navigation.setOptions({

@@ -101,7 +101,7 @@ src/
 - **Maps (Android):** Placeholder `YOUR_GOOGLE_MAPS_API_KEY` → blank tiles until a real key is set and the app is rebuilt.
 - **Delivery fee:** Free above **$50** subtotal (`src/utils/commerce.ts`).
 - **Tracking demo speed:** Short phases (~15s / 35s / 90s) so reviewers see full progression quickly.
-- **Offline:** Banner + browse **previously fetched** catalog pages. Offline search filters that cache. Checkout still needs network. Reconnect triggers a catalog refresh.
+- **Offline:** Banner + browse **previously fetched** catalog pages. Offline search filters that cache. Checkout still needs network. Reconnect retries only if the catalog failed or the cache is empty (so paginated category results are not wiped).
 - **Product quantity stepper:** Controls “how many to add” on Add to Cart; cart badge is cart total.
 
 ## What I would do next
