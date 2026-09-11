@@ -1,7 +1,8 @@
 import React, {useEffect, useRef} from 'react';
-import {Animated, StyleSheet, View, useWindowDimensions} from 'react-native';
+import {Animated, StyleSheet, View} from 'react-native';
 
 import {colors} from '../theme/colors';
+import {useResponsiveLayout} from '../theme/layout';
 
 type Props = {
   count?: number;
@@ -41,22 +42,11 @@ function SkeletonCard({width}: {width: number}) {
 }
 
 export function CatalogSkeleton({count = 6}: Props) {
-  const {width} = useWindowDimensions();
-  const horizontalPadding = width * 0.04;
-  const gap = 12;
-  const numColumns = width >= 768 ? 3 : 2;
-  const cardWidth =
-    (width - horizontalPadding * 2 - gap * (numColumns - 1)) / numColumns;
+  // Parent screen owns horizontal padding — avoid double-padding on tablets.
+  const {gap, cardWidth} = useResponsiveLayout();
 
   return (
-    <View
-      style={[
-        styles.grid,
-        {
-          paddingHorizontal: horizontalPadding,
-          gap,
-        },
-      ]}>
+    <View style={[styles.grid, {gap}]}>
       {Array.from({length: count}).map((_, index) => (
         <SkeletonCard key={`skeleton-${index}`} width={cardWidth} />
       ))}

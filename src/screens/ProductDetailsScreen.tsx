@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Carousel} from 'react-native-reanimated-carousel';
@@ -20,6 +19,7 @@ import {useAppDispatch, useAppSelector} from '../store/hooks';
 import {addToCart} from '../store/slices/cartSlice';
 import type {CatalogProduct} from '../store/slices/catalogSlice';
 import {colors} from '../theme/colors';
+import {useResponsiveLayout} from '../theme/layout';
 import {getDiscountedPrice} from '../utils/commerce';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
@@ -27,7 +27,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
 export function ProductDetailsScreen({route, navigation}: Props) {
   const {productId} = route.params;
   const dispatch = useAppDispatch();
-  const {width} = useWindowDimensions();
+  const {width, contentMaxWidth, horizontalPadding} = useResponsiveLayout();
   const cachedProduct = useAppSelector(state =>
     state.catalog.products.find(product => product.id === productId),
   );
@@ -127,25 +127,40 @@ export function ProductDetailsScreen({route, navigation}: Props) {
     );
   }
 
-  const carouselHeight = Math.min(width * 0.9, 420);
+  const carouselWidth = Math.min(width, contentMaxWidth);
+  const carouselHeight = Math.min(carouselWidth * 0.9, 420);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        <Carousel
-          style={{width, height: carouselHeight}}
-          itemSize={width}
-          data={images}
-          loop={images.length > 1}
-          snapMode="page"
-          renderItem={({item}: {item: string}) => (
-            <Image source={{uri: item}} style={styles.image} resizeMode="cover" />
-          )}
-        />
+        <View style={[styles.carouselWrap, {width: carouselWidth}]}>
+          <Carousel
+            style={{width: carouselWidth, height: carouselHeight}}
+            itemSize={carouselWidth}
+            data={images}
+            loop={images.length > 1}
+            snapMode="page"
+            renderItem={({item}: {item: string}) => (
+              <Image
+                source={{uri: item}}
+                style={styles.image}
+                resizeMode="cover"
+              />
+            )}
+          />
+        </View>
 
-        <View style={styles.body}>
+        <View
+          style={[
+            styles.body,
+            {
+              width: carouselWidth,
+              paddingHorizontal: horizontalPadding,
+              alignSelf: 'center',
+            },
+          ]}>
           <Text style={styles.category}>{product.category}</Text>
           <Text style={styles.title}>{product.title}</Text>
           <View style={styles.priceRow}>
@@ -182,6 +197,10 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 32,
+    alignItems: 'center',
+  },
+  carouselWrap: {
+    alignSelf: 'center',
   },
   image: {
     width: '100%',
@@ -189,7 +208,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
   },
   body: {
-    paddingHorizontal: '5%',
     paddingTop: 18,
     gap: 10,
   },

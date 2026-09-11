@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -27,6 +26,7 @@ import {
   setTrackingStatus,
 } from '../store/slices/trackingSlice';
 import {colors} from '../theme/colors';
+import {useResponsiveLayout} from '../theme/layout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Tracking'>;
 
@@ -34,8 +34,12 @@ export function TrackingScreen({navigation}: Props) {
   const dispatch = useAppDispatch();
   const orderId = useAppSelector(state => state.tracking.orderId);
   const orderPlacedAt = useAppSelector(state => state.tracking.orderPlacedAt);
-  const {width, height} = useWindowDimensions();
-  const mapHeight = Math.min(Math.max(height * 0.42, 220), 420);
+  const {width, height, contentMaxWidth, horizontalPadding, isTablet} =
+    useResponsiveLayout();
+  const mapHeight = Math.min(
+    Math.max(height * (isTablet ? 0.48 : 0.42), 220),
+    isTablet ? 480 : 420,
+  );
 
   const [snapshot, setSnapshot] = useState<TrackingSnapshot | null>(null);
 
@@ -104,7 +108,15 @@ export function TrackingScreen({navigation}: Props) {
   if (!orderId || !orderPlacedAt || !snapshot || !region) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-        <View style={styles.empty}>
+        <View
+          style={[
+            styles.empty,
+            {
+              width: Math.min(width, contentMaxWidth),
+              paddingHorizontal: horizontalPadding,
+              alignSelf: 'center',
+            },
+          ]}>
           <Text style={styles.title}>No active order</Text>
           <Text style={styles.subtitle}>
             Place an order from the cart to start live tracking.
@@ -154,7 +166,15 @@ export function TrackingScreen({navigation}: Props) {
         </MapView>
       </View>
 
-      <View style={styles.panel}>
+      <View
+        style={[
+          styles.panel,
+          {
+            width: Math.min(width, contentMaxWidth),
+            paddingHorizontal: horizontalPadding,
+            alignSelf: 'center',
+          },
+        ]}>
         <Text style={styles.orderId}>Order {orderId}</Text>
         <Text style={styles.eta}>ETA {snapshot.etaLabel}</Text>
 
@@ -206,7 +226,6 @@ const styles = StyleSheet.create({
   },
   panel: {
     flex: 1,
-    paddingHorizontal: '5%',
     paddingTop: 16,
     gap: 8,
   },
@@ -253,7 +272,6 @@ const styles = StyleSheet.create({
   empty: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: '8%',
     gap: 10,
   },
   title: {

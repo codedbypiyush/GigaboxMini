@@ -25,6 +25,7 @@ import {
 } from '../store/slices/cartSlice';
 import {startTracking} from '../store/slices/trackingSlice';
 import {colors} from '../theme/colors';
+import {useResponsiveLayout} from '../theme/layout';
 import {
   FREE_DELIVERY_THRESHOLD,
   createOrderId,
@@ -38,6 +39,12 @@ export function CartScreen({navigation}: Props) {
   const items = useAppSelector(selectCartItems);
   const subtotal = useAppSelector(selectCartSubtotal);
   const {isOffline} = useNetwork();
+  const {width, contentMaxWidth, horizontalPadding} = useResponsiveLayout();
+  const contentStyle = {
+    width: Math.min(width, contentMaxWidth),
+    alignSelf: 'center' as const,
+    paddingHorizontal: horizontalPadding,
+  };
 
   const deliveryFee = useMemo(() => getDeliveryFee(subtotal), [subtotal]);
   const total = subtotal + deliveryFee;
@@ -102,7 +109,7 @@ export function CartScreen({navigation}: Props) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       {items.length === 0 ? (
-        <View style={styles.empty}>
+        <View style={[styles.empty, contentStyle]}>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>
             Add products from the catalog to get started.
@@ -119,9 +126,9 @@ export function CartScreen({navigation}: Props) {
             data={items}
             keyExtractor={item => String(item.productId)}
             renderItem={renderItem}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, contentStyle]}
           />
-          <View style={styles.summary}>
+          <View style={[styles.summary, contentStyle]}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
@@ -162,8 +169,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   list: {
-    padding: '4%',
     gap: 12,
+    paddingTop: 12,
     paddingBottom: 24,
   },
   card: {
@@ -203,7 +210,6 @@ const styles = StyleSheet.create({
   summary: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingHorizontal: '5%',
     paddingTop: 14,
     paddingBottom: 10,
     gap: 8,
@@ -259,7 +265,6 @@ const styles = StyleSheet.create({
   empty: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: '8%',
     gap: 10,
   },
   emptyTitle: {

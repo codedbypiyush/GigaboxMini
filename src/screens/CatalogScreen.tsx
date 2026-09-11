@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
@@ -34,6 +33,7 @@ import {
   type CatalogProduct,
 } from '../store/slices/catalogSlice';
 import {colors} from '../theme/colors';
+import {useResponsiveLayout} from '../theme/layout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Catalog'>;
 
@@ -51,17 +51,11 @@ export function CatalogScreen({navigation}: Props) {
   const searchQuery = useAppSelector(selectSearchQuery);
   const activeOrderId = useAppSelector(state => state.tracking.orderId);
   const {isOffline} = useNetwork();
-  const {width} = useWindowDimensions();
+  const {horizontalPadding, gap, numColumns, cardWidth} = useResponsiveLayout();
 
   const [draftQuery, setDraftQuery] = useState(searchQuery);
   const searchAbortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const horizontalPadding = width * 0.04;
-  const gap = 12;
-  const numColumns = width >= 768 ? 3 : 2;
-  const cardWidth =
-    (width - horizontalPadding * 2 - gap * (numColumns - 1)) / numColumns;
 
   useEffect(() => {
     const load = async () => {
